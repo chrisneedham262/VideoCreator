@@ -1,0 +1,18 @@
+{
+  "raster": {
+    "w": 1920,
+    "h": 1080,
+    "fps": 30
+  },
+  "default_fade_sec": 0.25,
+  "rules": [
+    {
+      "sentence": "My model has been straightforward: create a service faster and more cheaply than others can, sell it online, and turn a profit. It\u2019s not glamorous, but it works.",
+      "clip": "media/broll/business-strategy.mp4",
+      "play_after": true,
+      "duration_sec": 8.0,
+      "priority": 10,
+      "fade_sec": 0.25
+    }
+  ]
+}

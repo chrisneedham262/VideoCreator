@@ -1,0 +1,25 @@
+{
+  "raster": { "w": 1920, "h": 1080, "fps": 30 },
+  "output": { "crf": 18, "preset": "medium", "audio_bitrate": "192k" },
+
+  "tracks": {
+    "video": [
+      { "id": "intro", "src": "{{INTRO_MP4}}", "in": 0, "out": 4, "at": 0 },
+      { "id": "aroll1", "src": "{{A_ROLL1}}", "in": 0, "out": 8, "at": 4 },
+      { "id": "broll1", "src": "{{B_ROLL1}}", "in": 1, "out": 6, "at": 6, "overlay": { "x": 0, "y": 0, "w": 1920, "h": 1080, "composite": true } }
+    ],
+    "graphics": [
+      { "src": "{{TITLE_PNG}}", "at": 0.5, "duration": 3, "x": "(W-w)/2", "y": "H*0.12" },
+      { "src": "{{LOWER_THIRD_PNG}}", "at": 5.0, "duration": 4.0, "x": "80", "y": "H-220" }
+    ],
+    "audio": [
+      { "id": "vo", "src": "{{VOICEOVER_WAV}}", "at": 0 },
+      { "id": "music", "src": "{{MUSIC_MP3}}", "at": 0, "target_lufs": -14 }
+    ],
+    "captions": { "src": "{{CAPTIONS_SRT}}", "burn_in": false }
+  },
+
+  "transitions": [
+    { "between": ["intro", "aroll1"], "type": "crossfade", "duration": 0.6 }
+  ]
+}

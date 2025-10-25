@@ -1,0 +1,250 @@
+<!doctype html>
+<html>
+  <head>
+    <meta charset="utf-8">
+    <title>Main Video + B-roll (time-based)</title>
+    <style>
+      body { font-family: system-ui, -apple-system, Segoe UI, Roboto, sans-serif; padding: 20px; line-height: 1.45; }
+      .grid { display: grid; gap: 16px; grid-template-columns: 1fr; max-width: 880px; }
+      label { font-weight: 600; display: block; margin-bottom: 6px; }
+      input[type="number"] { width: 140px; }
+      .broll-row { display: flex; gap: 12px; align-items: end; flex-wrap: wrap; border: 1px solid #e6e6e6; padding: 12px; border-radius: 8px; }
+      .row-col { display: flex; flex-direction: column; }
+      .note { font-size: 12px; color: #666; }
+      button, .btn { padding: 10px 14px; font-weight: 600; border: 1px solid #ccc; border-radius: 6px; background: #fafafa; cursor: pointer; }
+      button:hover, .btn:hover { background: #f0f0f0; }
+      .btn-danger { border-color: #d33; color: #a00; }
+      pre { background: #f7f7f7; padding: 10px; border-radius: 6px; }
+    </style>
+  </head>
+  <body>
+    <h1>Main Video + B-roll (time-based)</h1>
+
+    <form method="post" enctype="multipart/form-data" action="/render/">
+      {% csrf_token %}
+
+      <div class="grid">
+        <div>
+          <label>Main video (with audio)</label>
+          <input type="file" name="media" accept="video/*" required>
+        </div>
+
+        <div>
+          <label>Title</label>
+          <input type="text" name="title" required>
+        </div>
+
+        <!-- PiP (shrink main video) MULTI-ROWS -->
+        <div style="border:1px solid #e6e6e6; padding:12px; border-radius:8px;">
+          <label>Picture-in-Picture (shrink main video to bottom-left)</label>
+
+          <!-- hidden count so the server knows how many rows to read -->
+          <input type="hidden" id="pip_rows" name="pip_rows" value="0">
+
+          <div id="pip-list"></div>
+          <div class="note">
+            Each PiP row (if enabled) shrinks the main video to 1/12 area at the bottom-left
+            for the specified window. Optional overlay (video/image) fills the canvas behind
+            the PiP during that window.
+          </div>
+          <br>
+          <button type="button" id="pip-add">+ Add PiP</button>
+        </div>
+
+        <!-- B-roll (unchanged) -->
+        <div>
+          <label>B-roll clips</label>
+          <div id="broll-list"></div>
+          <div class="note">Each B-roll row: choose a clip, set start time (sec) and duration (sec). Audio from the main video continues.</div>
+          <br>
+          <button type="button" id="add-row">+ Add B-roll</button>
+        </div>
+
+        <div>
+          <button type="submit">Render</button>
+        </div>
+      </div>
+    </form>
+
+    {% if output_url %}
+      <h2>Result</h2>
+      <video src="{{ output_url }}" controls width="720"></video>
+      <p><a class="btn" href="{{ output_url }}">Download</a></p>
+    {% endif %}
+
+    {% if broll_hits %}
+      <h3>B-roll / PiP log</h3>
+      <pre style="white-space:pre-wrap">{{ broll_hits }}</pre>
+    {% endif %}
+
+    {% if error %}
+      <h3 style="color:#b00020">Error</h3>
+      <pre style="color:#b00020; white-space:pre-wrap">{{ error }}</pre>
+    {% endif %}
+
+    <!-- Templates -->
+    <template id="row-template">
+      <div class="broll-row">
+        <div class="row-col">
+          <label>B-roll file</label>
+          <input type="file" name="broll_file" accept="video/*" required>
+        </div>
+        <div class="row-col">
+          <label>Start (sec)</label>
+          <input type="number" name="broll_start" step="0.01" min="0" placeholder="e.g. 12.5" required>
+        </div>
+        <div class="row-col">
+          <label>Duration (sec)</label>
+          <input type="number" name="broll_dur" step="0.01" min="0.1" placeholder="e.g. 5" required>
+        </div>
+        <div class="row-col">
+          <label>&nbsp;</label>
+          <button type="button" class="btn btn-danger remove-row">Remove</button>
+        </div>
+      </div>
+    </template>
+
+    <template id="pip-row-template">
+      <div class="broll-row">
+        <div class="row-col">
+          <label>Enable</label>
+          <input type="checkbox">
+        </div>
+        <div class="row-col">
+          <label>Start (sec)</label>
+          <input type="number" step="0.01" min="0" placeholder="e.g. 12.5" required>
+        </div>
+        <div class="row-col">
+          <label>Duration (sec)</label>
+          <input type="number" step="0.01" min="0.1" placeholder="e.g. 8" required>
+        </div>
+        <div class="row-col">
+          <label>Overlay (video or image)</label>
+          <input type="file" accept="video/*,image/*">
+          <div class="note">Optional.</div>
+        </div>
+        <div class="row-col">
+          <label>&nbsp;</label>
+          <button type="button" class="btn btn-danger pip-remove">Remove</button>
+        </div>
+        
+        <!-- Zoom Controls -->
+        <div class="zoom-section" style="grid-column: 1 / -1; margin-top: 12px; padding-top: 12px; border-top: 1px solid #e6e6e6;">
+          <div style="display: flex; gap: 12px; align-items: end; flex-wrap: wrap;">
+            <div class="row-col">
+              <label>Zoom In Time (sec)</label>
+              <input type="number" step="0.01" min="0" placeholder="e.g. 2.0">
+              <div class="note">When to start zooming</div>
+            </div>
+            <div class="row-col">
+              <label>Zoom Direction</label>
+              <select>
+                <option value="left">Left</option>
+                <option value="center">Center</option>
+                <option value="right">Right</option>
+              </select>
+            </div>
+            <div class="row-col">
+              <label>Zoom Out Time (sec)</label>
+              <input type="number" step="0.01" min="0" placeholder="e.g. 6.0">
+              <div class="note">When to start zooming out</div>
+            </div>
+            <div class="row-col">
+              <label>&nbsp;</label>
+              <button type="button" class="btn btn-danger zoom-remove">Remove Zoom</button>
+            </div>
+          </div>
+        </div>
+      </div>
+    </template>
+
+    <script>
+      // ---------- B-ROLL UI (existing) ----------
+      (function(){
+        const list = document.getElementById('broll-list');
+        const tpl = document.getElementById('row-template');
+        const addBtn = document.getElementById('add-row');
+
+        function addRow(prefill = {}) {
+          const node = tpl.content.cloneNode(true);
+          const row = node.querySelector('.broll-row');
+          if (prefill.start) row.querySelector('input[name="broll_start"]').value = prefill.start;
+          if (prefill.dur)   row.querySelector('input[name="broll_dur"]').value   = prefill.dur;
+          row.querySelector('.remove-row').addEventListener('click', () => row.remove());
+          list.appendChild(node);
+        }
+
+        addBtn.addEventListener('click', () => addRow());
+        // one empty row initially
+        addRow({ start: '', dur: '' });
+      })();
+
+      // ---------- PiP UI (new) ----------
+      (function(){
+        const list = document.getElementById('pip-list');
+        const tpl  = document.getElementById('pip-row-template');
+        const add  = document.getElementById('pip-add');
+        const countInput = document.getElementById('pip_rows');
+
+        function renumber() {
+          const rows = list.querySelectorAll('.broll-row');
+          let i = 0;
+          rows.forEach(row => {
+            row.querySelector('input[type="checkbox"]').setAttribute('name', `pip_enable_${i}`);
+            row.querySelector('input[placeholder="e.g. 12.5"]').setAttribute('name', `pip_start_${i}`);
+            row.querySelector('input[placeholder="e.g. 8"]').setAttribute('name', `pip_dur_${i}`);
+            row.querySelector('input[type="file"]').setAttribute('name', `pip_overlay_${i}`);
+            
+            // Renumber zoom controls
+            const zoomInTime = row.querySelector('input[placeholder="e.g. 2.0"]');
+            const zoomDirection = row.querySelector('select');
+            const zoomOutTime = row.querySelector('input[placeholder="e.g. 6.0"]');
+            
+            if (zoomInTime) zoomInTime.setAttribute('name', `pip_zoom_in_time_${i}`);
+            if (zoomDirection) zoomDirection.setAttribute('name', `pip_zoom_direction_${i}`);
+            if (zoomOutTime) zoomOutTime.setAttribute('name', `pip_zoom_out_time_${i}`);
+            
+            i++;
+          });
+          countInput.value = String(i);
+        }
+
+        function addRow(prefill={}) {
+          const node = tpl.content.cloneNode(true);
+          const row  = node.querySelector('.broll-row');
+
+          const cb = row.querySelector('input[type="checkbox"]');
+          const st = row.querySelector('input[placeholder="e.g. 12.5"]');
+          const du = row.querySelector('input[placeholder="e.g. 8"]');
+
+          if (typeof prefill.enabled !== 'undefined') cb.checked = !!prefill.enabled;
+          if (prefill.start != null) st.value = prefill.start;
+          if (prefill.dur   != null) du.value = prefill.dur;
+
+          row.querySelector('.pip-remove').addEventListener('click', () => {
+            row.remove();
+            renumber();
+          });
+          
+          // Add zoom remove functionality
+          const zoomRemoveBtn = row.querySelector('.zoom-remove');
+          if (zoomRemoveBtn) {
+            zoomRemoveBtn.addEventListener('click', () => {
+              const zoomSection = row.querySelector('.zoom-section');
+              if (zoomSection) {
+                zoomSection.remove();
+              }
+            });
+          }
+
+          list.appendChild(node);
+          renumber();
+        }
+
+        add.addEventListener('click', () => addRow({ enabled: true, start: '', dur: '' }));
+        // start with one empty (disabled) row
+        addRow({ enabled: false, start: '', dur: '' });
+      })();
+    </script>
+  </body>
+</html>

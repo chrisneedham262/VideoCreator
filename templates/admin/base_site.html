@@ -1,0 +1,35 @@
+{% extends "admin/base.html" %}
+
+{% block extrahead %}
+{{ block.super }}
+<style>
+    /* Force light theme and hide the theme toggle button */
+    [data-theme="dark"] {
+        display: none !important;
+    }
+    
+    /* Hide the theme toggle button */
+    #theme-toggle,
+    button[data-theme-toggle],
+    .theme-toggle {
+        display: none !important;
+    }
+    
+    /* Force light mode color scheme */
+    :root {
+        color-scheme: light !important;
+    }
+</style>
+<script>
+    document.addEventListener('DOMContentLoaded', function() {
+        // Force light theme and remove toggle
+        document.documentElement.removeAttribute('data-theme');
+        localStorage.removeItem('theme');
+        
+        // Remove the toggle button if it exists
+        var toggle = document.getElementById('theme-toggle');
+        if (toggle) toggle.remove();
+    });
+</script>
+{% endblock %}
+

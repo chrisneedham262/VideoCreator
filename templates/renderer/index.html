@@ -1,0 +1,691 @@
+<!doctype html>
+<html>
+  <head>
+    <meta charset="utf-8">
+    <title>Main Video + B-roll (time-based)</title>
+    <style>
+      body { font-family: system-ui, -apple-system, Segoe UI, Roboto, sans-serif; padding: 20px; line-height: 1.45; background: #f8f9fa; }
+      .grid { display: grid; gap: 20px; grid-template-columns: 1fr; max-width: 1000px; margin: 0 auto; }
+      label { font-weight: 600; display: block; margin-bottom: 6px; color: #2c3e50; }
+      input[type="number"] { width: 140px; padding: 8px 12px; border: 1px solid #ddd; border-radius: 6px; font-size: 14px; }
+      input[type="text"] { width: 100%; padding: 8px 12px; border: 1px solid #ddd; border-radius: 6px; font-size: 14px; }
+      input[type="file"] { padding: 8px 12px; border: 1px solid #ddd; border-radius: 6px; font-size: 14px; }
+      .broll-row { display: flex; gap: 12px; align-items: end; flex-wrap: wrap; border: 1px solid #e6e6e6; padding: 16px; border-radius: 8px; background: white; box-shadow: 0 2px 4px rgba(0,0,0,0.1); margin-bottom: 12px; }
+      .row-col { display: flex; flex-direction: column; }
+      .note { font-size: 12px; color: #666; margin-top: 4px; }
+      button, .btn { padding: 10px 14px; font-weight: 600; border: 1px solid #ccc; border-radius: 6px; background: #fafafa; cursor: pointer; transition: all 0.2s; }
+      button:hover, .btn:hover { background: #f0f0f0; transform: translateY(-1px); }
+      .btn-danger { border-color: #d33; color: #a00; }
+      .btn-danger:hover { background: #fee; }
+      .btn-primary { background: #007bff; color: white; border-color: #007bff; }
+      .btn-primary:hover { background: #0056b3; }
+      pre { background: #f7f7f7; padding: 10px; border-radius: 6px; }
+      
+      /* Timeline Styles */
+      .timeline-container { background: white; border-radius: 8px; padding: 20px; box-shadow: 0 2px 4px rgba(0,0,0,0.1); margin-bottom: 20px; }
+      .timeline-header { display: flex; justify-content: space-between; align-items: center; margin-bottom: 16px; }
+      .timeline-title { font-size: 18px; font-weight: 600; color: #2c3e50; }
+      .timeline-controls { display: flex; gap: 8px; }
+      .timeline { position: relative; height: 60px; background: #f8f9fa; border: 1px solid #dee2e6; border-radius: 6px; margin: 16px 0; overflow: hidden; }
+      .timeline-ruler { position: absolute; top: 0; left: 0; right: 0; height: 20px; background: #e9ecef; border-bottom: 1px solid #dee2e6; display: flex; align-items: center; }
+      .timeline-marker { position: absolute; width: 1px; height: 100%; background: #6c757d; }
+      .timeline-marker::after { content: attr(data-time); position: absolute; top: -20px; left: -20px; width: 40px; text-align: center; font-size: 10px; color: #6c757d; }
+      .timeline-item { position: absolute; height: 30px; border-radius: 4px; cursor: pointer; transition: all 0.2s; }
+      .timeline-item:hover { transform: scaleY(1.1); }
+      .timeline-broll { background: #28a745; }
+      .timeline-pip { background: #007bff; }
+      .timeline-item::after { content: attr(data-duration); position: absolute; top: -20px; left: 0; font-size: 10px; color: #495057; white-space: nowrap; }
+      
+      /* Time Display */
+      .time-display { display: flex; gap: 8px; align-items: center; margin-top: 8px; }
+      .time-badge { background: #e9ecef; padding: 4px 8px; border-radius: 4px; font-size: 12px; font-weight: 600; color: #495057; }
+      .time-badge.start { background: #d4edda; color: #155724; }
+      .time-badge.end { background: #f8d7da; color: #721c24; }
+      .time-badge.duration { background: #d1ecf1; color: #0c5460; }
+      
+      /* Section Headers */
+      .section-header { background: linear-gradient(135deg, #667eea 0%, #764ba2 100%); color: white; padding: 16px 20px; border-radius: 8px; margin-bottom: 16px; }
+      .section-header h3 { margin: 0; font-size: 18px; font-weight: 600; }
+      .section-header p { margin: 8px 0 0 0; opacity: 0.9; font-size: 14px; }
+      
+      /* Enhanced Form Styles */
+      .form-section { background: white; border-radius: 8px; padding: 20px; box-shadow: 0 2px 4px rgba(0,0,0,0.1); }
+      .form-section h4 { margin: 0 0 16px 0; color: #2c3e50; font-size: 16px; }
+      
+      /* Zoom Section */
+      .zoom-section { grid-column: 1 / -1; margin-top: 16px; padding: 16px; border-top: 1px solid #e6e6e6; background: #f8f9fa; border-radius: 6px; }
+      .zoom-section h5 { margin: 0 0 12px 0; color: #495057; font-size: 14px; }
+      
+      /* Responsive */
+      @media (max-width: 768px) {
+        .broll-row { flex-direction: column; align-items: stretch; }
+        .row-col { margin-bottom: 12px; }
+        .timeline { height: 40px; }
+        .timeline-item { height: 20px; }
+      }
+      
+      /* Spinner Animation */
+      .spinner {
+        display: inline-block;
+        width: 16px;
+        height: 16px;
+        border: 2px solid rgba(255, 255, 255, 0.3);
+        border-top-color: white;
+        border-radius: 50%;
+        animation: spin 0.8s linear infinite;
+        margin-right: 8px;
+        vertical-align: middle;
+      }
+      
+      @keyframes spin {
+        to { transform: rotate(360deg); }
+      }
+      
+      .btn-rendering {
+        opacity: 0.8;
+        cursor: not-allowed;
+        pointer-events: none;
+      }
+      
+      /* Tab Styles */
+      .tab-container { max-width: 1000px; margin: 0 auto 30px auto; }
+      .tab-navigation { display: flex; gap: 0; border-bottom: 2px solid #dee2e6; background: white; border-radius: 8px 8px 0 0; overflow: hidden; box-shadow: 0 2px 4px rgba(0,0,0,0.1); }
+      .tab-button { flex: 1; padding: 16px 24px; font-size: 16px; font-weight: 600; border: none; background: #f8f9fa; color: #6c757d; cursor: pointer; transition: all 0.3s; border-bottom: 3px solid transparent; }
+      .tab-button:hover { background: #e9ecef; color: #495057; }
+      .tab-button.active { background: white; color: #007bff; border-bottom-color: #007bff; }
+      .tab-content { display: none; }
+      .tab-content.active { display: block; }
+    </style>
+  </head>
+  <body>
+    <h1 style="text-align: center; color: #2c3e50; margin-bottom: 30px;">Video Ad Editor</h1>
+
+    {% if output_url %}
+      <div class="form-section" style="margin-bottom: 30px; text-align: center;">
+        <h4>✅ Result</h4>
+        <video src="{{ output_url }}" controls width="720" style="width: 100%; max-width: 720px; border-radius: 8px; margin: 0 auto; display: block;"></video>
+        <div style="margin-top: 16px; display: flex; gap: 12px; justify-content: center; align-items: center;">
+          <a class="btn btn-primary" href="{{ output_url }}">📥 Download Video</a>
+          {% if rendered_title %}
+          <form method="post" action="{% url 'submit_completed_video' %}" style="display: inline-block;" onsubmit="return confirmSubmit(event)">
+            {% csrf_token %}
+            <input type="hidden" name="title" value="{{ rendered_title }}">
+            <input type="hidden" name="video_url" value="{{ output_url }}">
+            <button type="submit" class="btn btn-primary" style="background: #28a745; border-color: #28a745;">✓ Submit Completed Video</button>
+          </form>
+          {% endif %}
+        </div>
+        {% if submit_success %}
+        <p style="margin-top: 12px; color: #28a745; font-weight: 600;">✓ Video successfully submitted!</p>
+        {% endif %}
+      </div>
+    {% endif %}
+
+    <!-- Tab Navigation -->
+    <div class="tab-container">
+      <div class="tab-navigation">
+        <button type="button" class="tab-button active" onclick="switchTab('titles-pip')">📝 Titles and PIP</button>
+        <button type="button" class="tab-button" onclick="switchTab('video-production')">🎬 Video Production</button>
+      </div>
+    </div>
+
+    <form method="post" enctype="multipart/form-data" action="">
+      {% csrf_token %}
+
+      <!-- Tab 1: Titles and PIP -->
+      <div id="tab-titles-pip" class="tab-content active">
+        <div class="grid">
+        
+        <!-- Pre-Production Videos Section -->
+        {% if preproduction_videos %}
+        <div class="form-section">
+          <div class="section-header">
+            <h3>📋 Pre-Production Videos</h3>
+            <p>Available titles and PiP videos ready for production</p>
+          </div>
+          
+          <div style="overflow-x: auto;">
+            <div style="display: flex; gap: 16px; flex-wrap: wrap;">
+              {% for video in preproduction_videos %}
+              <div style="flex: 0 0 auto; width: 280px; background: #f8f9fa; border-radius: 8px; padding: 16px; box-shadow: 0 2px 4px rgba(0,0,0,0.1);">
+                <div style="margin-bottom: 12px;">
+                  <h4 style="margin: 0 0 8px 0; color: #2c3e50; font-size: 16px; font-weight: 600;">{{ video.title }}</h4>
+                  <p style="margin: 0; font-size: 12px; color: #6c757d;">
+                    Created: {{ video.created_at|date:"M d, Y - g:i A" }}
+                  </p>
+                </div>
+                
+                <div style="margin-bottom: 12px;">
+                  <video src="{{ video.pip_video.url }}" controls style="width: 100%; border-radius: 6px; background: black;"></video>
+                </div>
+                
+                <div style="display: flex; gap: 8px;">
+                  <a href="{{ video.pip_video.url }}" download class="btn btn-primary" style="flex: 1; text-align: center; text-decoration: none; font-size: 13px; padding: 8px 10px;">
+                    📥 Download
+                  </a>
+                  <button type="button" class="btn use-preprod-btn" onclick="usePreProduction('{{ video.title|escapejs }}', '{{ video.pip_video.url|escapejs }}', this)" style="flex: 1; font-size: 13px; padding: 8px 10px;">
+                    ✨ Use This
+                  </button>
+                </div>
+              </div>
+              {% endfor %}
+            </div>
+          </div>
+        </div>
+        {% else %}
+        <div class="form-section">
+          <div style="text-align: center; padding: 40px; color: #6c757d;">
+            <h3>No Pre-Production Videos Yet</h3>
+            <p>Add pre-production videos from the Django Admin panel.</p>
+          </div>
+        </div>
+        {% endif %}
+        
+        </div>
+      </div>
+
+      <!-- Tab 2: Video Production -->
+      <div id="tab-video-production" class="tab-content">
+        <div class="grid">
+        
+        <!-- Main Video Section -->
+        <div class="form-section">
+          <h4>📹 Main Video</h4>
+          <div class="row-col">
+            <label>Main video (with audio)</label>
+            <input type="file" name="media" accept="video/*" required>
+          </div>
+          <div class="row-col" style="margin-top: 16px;">
+            <label>Title</label>
+            <input type="text" name="title" required placeholder="Enter video title">
+          </div>
+          <div class="row-col" style="margin-top: 16px;">
+            <label style="display: flex; align-items: center; gap: 8px; cursor: pointer;">
+              <input type="checkbox" name="enable_captions" checked style="width: auto; cursor: pointer;">
+              <span>Enable Auto Captions (requires faster-whisper or openai-whisper)</span>
+            </label>
+            <div class="note">Automatically transcribe audio and burn-in subtitles to the video</div>
+          </div>
+        </div>
+        
+        <!-- Timeline Overview -->
+        <div class="timeline-container">
+          <div class="timeline-header">
+            <div class="timeline-title">📊 Timeline Overview</div>
+            <div class="timeline-controls">
+              <button type="button" class="btn btn-primary" onclick="updateTimeline()">Refresh Timeline</button>
+            </div>
+          </div>
+          <div class="timeline" id="main-timeline">
+            <div class="timeline-ruler" id="timeline-ruler"></div>
+            <div id="timeline-items"></div>
+          </div>
+          <div style="display: flex; gap: 16px; margin-top: 12px;">
+            <div class="time-badge timeline-broll">B-roll Clips</div>
+            <div class="time-badge timeline-pip">PiP Windows</div>
+          </div>
+        </div>
+        
+        <!-- PiP Section -->
+        <div class="form-section">
+          <div class="section-header">
+            <h3>🎬 Picture-in-Picture</h3>
+            <p>Shrink main video to bottom-left corner during specified time windows</p>
+          </div>
+
+          <!-- hidden count so the server knows how many rows to read -->
+          <input type="hidden" id="pip_rows" name="pip_rows" value="0">
+
+          <div id="pip-list"></div>
+          <div class="note">
+            Each PiP row shrinks the main video to 1/12 area at the bottom-left for the specified window. 
+            Optional overlay (video/image) fills the canvas behind the PiP during that window.
+          </div>
+          <br>
+          <button type="button" id="pip-add" class="btn btn-primary">+ Add PiP Window</button>
+        </div>
+        
+        <!-- B-roll Section -->
+        <div class="form-section">
+          <div class="section-header">
+            <h3>🎥 B-roll Clips</h3>
+            <p>Insert additional video clips at specific times while maintaining main video audio</p>
+          </div>
+          
+          <div id="broll-list"></div>
+          <div class="note">Each B-roll row: choose a clip, set start time (sec) and duration (sec). Audio from the main video continues.</div>
+          <br>
+          <button type="button" id="add-row" class="btn btn-primary">+ Add B-roll Clip</button>
+        </div>
+
+        <div style="text-align: center;">
+          <button type="submit" id="render-btn" class="btn btn-primary" style="padding: 12px 24px; font-size: 16px;">
+            <span id="render-text">🎬 Render Video</span>
+          </button>
+        </div>
+        </div>
+      </div>
+    </form>
+
+
+
+    {% if broll_hits %}
+      <div class="form-section" style="margin-top: 20px;">
+        <h4>📋 Processing Log</h4>
+        <pre style="white-space:pre-wrap; background: #f8f9fa; border: 1px solid #dee2e6;">{{ broll_hits }}</pre>
+      </div>
+    {% endif %}
+
+    {% if error %}
+      <div class="form-section" style="margin-top: 20px; border-left: 4px solid #dc3545;">
+        <h4 style="color:#dc3545">❌ Error</h4>
+        <pre style="color:#dc3545; white-space:pre-wrap;">{{ error }}</pre>
+      </div>
+    {% endif %}
+
+    <!-- Templates -->
+    <template id="row-template">
+      <div class="broll-row">
+        <div class="row-col">
+          <label>B-roll file</label>
+          <input type="file" name="broll_file" accept="video/*" required>
+        </div>
+        <div class="row-col">
+          <label>Start (sec)</label>
+          <input type="number" name="broll_start" step="0.01" min="0" placeholder="e.g. 12.5" required>
+        </div>
+        <div class="row-col">
+          <label>Duration (sec)</label>
+          <input type="number" name="broll_dur" step="0.01" min="0.1" placeholder="e.g. 5" required>
+        </div>
+        <div class="row-col">
+          <label>&nbsp;</label>
+          <button type="button" class="btn btn-danger remove-row">Remove</button>
+        </div>
+        <div class="time-display">
+          <div class="time-badge start">Start: <span class="start-time">0:00</span></div>
+          <div class="time-badge end">End: <span class="end-time">0:00</span></div>
+          <div class="time-badge duration">Duration: <span class="duration-time">0:00</span></div>
+        </div>
+      </div>
+    </template>
+
+    <template id="pip-row-template">
+      <div class="broll-row">
+        <div class="row-col">
+          <label>Enable</label>
+          <input type="checkbox">
+        </div>
+        <div class="row-col">
+          <label>Start (sec)</label>
+          <input type="number" step="0.01" min="0" placeholder="e.g. 12.5" required>
+        </div>
+        <div class="row-col">
+          <label>Duration (sec)</label>
+          <input type="number" step="0.01" min="0.1" placeholder="e.g. 8" required>
+        </div>
+        <div class="row-col">
+          <label>Overlay (video or image)</label>
+          <input type="file" accept="video/*,image/*">
+          <div class="note">Optional background overlay</div>
+        </div>
+        <div class="row-col">
+          <label>Zoom Direction</label>
+          <select style="padding: 8px 12px; border: 1px solid #ddd; border-radius: 6px; font-size: 14px;">
+            <option value="">No zoom</option>
+            <option value="left">Left</option>
+            <option value="center">Center</option>
+            <option value="right">Right</option>
+          </select>
+        </div>
+        <div class="row-col">
+          <label>Zoom Start (sec)</label>
+          <input type="number" step="0.01" min="0" placeholder="e.g. 2.0">
+          <div class="note">When to start zooming</div>
+        </div>
+        <div class="row-col">
+          <label>Zoom End (sec)</label>
+          <input type="number" step="0.01" min="0" placeholder="e.g. 6.0">
+          <div class="note">When to stop zooming</div>
+        </div>
+        <div class="row-col">
+          <label>&nbsp;</label>
+          <button type="button" class="btn btn-danger pip-remove">Remove</button>
+        </div>
+        
+        <div class="time-display">
+          <div class="time-badge start">Start: <span class="start-time">0:00</span></div>
+          <div class="time-badge end">End: <span class="end-time">0:00</span></div>
+          <div class="time-badge duration">Duration: <span class="duration-time">0:00</span></div>
+        </div>
+        
+
+
+      </div>
+    </template>
+
+    <script>
+      // Utility function to format time
+      function formatTime(seconds) {
+        if (!seconds || isNaN(seconds)) return '0:00';
+        const mins = Math.floor(seconds / 60);
+        const secs = Math.floor(seconds % 60);
+        return `${mins}:${secs.toString().padStart(2, '0')}`;
+      }
+
+      // Update time display for a row
+      function updateTimeDisplay(row) {
+        const startInput = row.querySelector('input[placeholder*="12.5"]');
+        const durationInput = row.querySelector('input[placeholder*="5"], input[placeholder*="8"]');
+        
+        if (startInput && durationInput) {
+          const start = parseFloat(startInput.value) || 0;
+          const duration = parseFloat(durationInput.value) || 0;
+          const end = start + duration;
+          
+          const startTimeSpan = row.querySelector('.start-time');
+          const endTimeSpan = row.querySelector('.end-time');
+          const durationTimeSpan = row.querySelector('.duration-time');
+          
+          if (startTimeSpan) startTimeSpan.textContent = formatTime(start);
+          if (endTimeSpan) endTimeSpan.textContent = formatTime(end);
+          if (durationTimeSpan) durationTimeSpan.textContent = formatTime(duration);
+        }
+      }
+
+      // Update timeline visualization
+      function updateTimeline() {
+        const timeline = document.getElementById('timeline-items');
+        const ruler = document.getElementById('timeline-ruler');
+        timeline.innerHTML = '';
+        ruler.innerHTML = '';
+        
+        let maxTime = 0;
+        const items = [];
+        
+        // Collect B-roll items
+        document.querySelectorAll('#broll-list .broll-row').forEach((row, index) => {
+          const startInput = row.querySelector('input[name="broll_start"]');
+          const durationInput = row.querySelector('input[name="broll_dur"]');
+          
+          if (startInput && durationInput) {
+            const start = parseFloat(startInput.value) || 0;
+            const duration = parseFloat(durationInput.value) || 0;
+            const end = start + duration;
+            maxTime = Math.max(maxTime, end);
+            
+            items.push({
+              type: 'broll',
+              start: start,
+              duration: duration,
+              end: end,
+              index: index
+            });
+          }
+        });
+        
+        // Collect PiP items
+        document.querySelectorAll('#pip-list .broll-row').forEach((row, index) => {
+          const checkbox = row.querySelector('input[type="checkbox"]');
+          const startInput = row.querySelector('input[placeholder*="12.5"]');
+          const durationInput = row.querySelector('input[placeholder*="8"]');
+          
+          if (checkbox && checkbox.checked && startInput && durationInput) {
+            const start = parseFloat(startInput.value) || 0;
+            const duration = parseFloat(durationInput.value) || 0;
+            const end = start + duration;
+            maxTime = Math.max(maxTime, end);
+            
+            items.push({
+              type: 'pip',
+              start: start,
+              duration: duration,
+              end: end,
+              index: index
+            });
+          }
+        });
+        
+        // Create timeline ruler
+        const rulerStep = Math.max(10, Math.ceil(maxTime / 10));
+        for (let i = 0; i <= maxTime; i += rulerStep) {
+          const marker = document.createElement('div');
+          marker.className = 'timeline-marker';
+          marker.style.left = `${(i / maxTime) * 100}%`;
+          marker.setAttribute('data-time', formatTime(i));
+          ruler.appendChild(marker);
+        }
+        
+        // Create timeline items
+        items.forEach((item, itemIndex) => {
+          const timelineItem = document.createElement('div');
+          timelineItem.className = `timeline-item timeline-${item.type}`;
+          timelineItem.style.left = `${(item.start / maxTime) * 100}%`;
+          timelineItem.style.width = `${(item.duration / maxTime) * 100}%`;
+          timelineItem.style.top = itemIndex % 2 === 0 ? '5px' : '25px';
+          timelineItem.setAttribute('data-duration', formatTime(item.duration));
+          timelineItem.title = `${item.type.toUpperCase()} ${item.index + 1}: ${formatTime(item.start)} - ${formatTime(item.end)} (${formatTime(item.duration)})`;
+          timeline.appendChild(timelineItem);
+        });
+      }
+
+      // ---------- B-ROLL UI (enhanced) ----------
+      (function(){
+        const list = document.getElementById('broll-list');
+        const tpl = document.getElementById('row-template');
+        const addBtn = document.getElementById('add-row');
+
+        function addRow(prefill = {}) {
+          const node = tpl.content.cloneNode(true);
+          const row = node.querySelector('.broll-row');
+          
+          if (prefill.start) row.querySelector('input[name="broll_start"]').value = prefill.start;
+          if (prefill.dur)   row.querySelector('input[name="broll_dur"]').value   = prefill.dur;
+          
+          // Add event listeners for time updates
+          const startInput = row.querySelector('input[name="broll_start"]');
+          const durationInput = row.querySelector('input[name="broll_dur"]');
+          
+          startInput.addEventListener('input', () => {
+            updateTimeDisplay(row);
+            updateTimeline();
+          });
+          
+          durationInput.addEventListener('input', () => {
+            updateTimeDisplay(row);
+            updateTimeline();
+          });
+          
+          row.querySelector('.remove-row').addEventListener('click', () => {
+            row.remove();
+            updateTimeline();
+          });
+          
+          list.appendChild(node);
+          updateTimeDisplay(row);
+          updateTimeline();
+        }
+
+        addBtn.addEventListener('click', () => addRow());
+        // one empty row initially
+        addRow({ start: '', dur: '' });
+      })();
+
+      // ---------- PiP UI (enhanced) ----------
+      (function(){
+        const list = document.getElementById('pip-list');
+        const tpl  = document.getElementById('pip-row-template');
+        const add  = document.getElementById('pip-add');
+        const countInput = document.getElementById('pip_rows');
+
+        function renumber() {
+          const rows = list.querySelectorAll('.broll-row');
+          let i = 0;
+          rows.forEach(row => {
+            row.querySelector('input[type="checkbox"]').setAttribute('name', `pip_enable_${i}`);
+            row.querySelector('input[placeholder="e.g. 12.5"]').setAttribute('name', `pip_start_${i}`);
+            row.querySelector('input[placeholder="e.g. 8"]').setAttribute('name', `pip_dur_${i}`);
+            row.querySelector('input[type="file"]').setAttribute('name', `pip_overlay_${i}`);
+            
+            // Renumber zoom controls
+            const zoomDirection = row.querySelector('select');
+            const zoomStart = row.querySelector('input[placeholder="e.g. 2.0"]');
+            const zoomEnd = row.querySelector('input[placeholder="e.g. 6.0"]');
+            
+            if (zoomDirection) zoomDirection.setAttribute('name', `pip_zoom_direction_${i}`);
+            if (zoomStart) zoomStart.setAttribute('name', `pip_zoom_start_${i}`);
+            if (zoomEnd) zoomEnd.setAttribute('name', `pip_zoom_end_${i}`);
+            
+            i++;
+          });
+          countInput.value = String(i);
+        }
+
+        function addRow(prefill={}) {
+          const node = tpl.content.cloneNode(true);
+          const row  = node.querySelector('.broll-row');
+
+          const cb = row.querySelector('input[type="checkbox"]');
+          const st = row.querySelector('input[placeholder="e.g. 12.5"]');
+          const du = row.querySelector('input[placeholder="e.g. 8"]');
+
+          if (typeof prefill.enabled !== 'undefined') cb.checked = !!prefill.enabled;
+          if (prefill.start != null) st.value = prefill.start;
+          if (prefill.dur   != null) du.value = prefill.dur;
+
+          // Add event listeners for time updates
+          cb.addEventListener('change', () => {
+            updateTimeDisplay(row);
+            updateTimeline();
+          });
+          
+          st.addEventListener('input', () => {
+            updateTimeDisplay(row);
+            updateTimeline();
+          });
+          
+          du.addEventListener('input', () => {
+            updateTimeDisplay(row);
+            updateTimeline();
+          });
+
+          row.querySelector('.pip-remove').addEventListener('click', () => {
+            row.remove();
+            renumber();
+            updateTimeline();
+          });
+          
+
+
+          list.appendChild(node);
+          renumber();
+          updateTimeDisplay(row);
+          updateTimeline();
+        }
+
+        add.addEventListener('click', () => addRow({ enabled: true, start: '', dur: '' }));
+        // start with one empty (disabled) row
+        addRow({ enabled: false, start: '', dur: '' });
+      })();
+
+      // Initialize timeline on page load
+      document.addEventListener('DOMContentLoaded', () => {
+        setTimeout(updateTimeline, 100);
+      });
+      
+      // Add spinner to render button on submit
+      document.querySelector('form').addEventListener('submit', function(e) {
+        const renderBtn = document.getElementById('render-btn');
+        const renderText = document.getElementById('render-text');
+        
+        // Add spinner and update text
+        renderText.innerHTML = '<span class="spinner"></span>Rendering...';
+        renderBtn.classList.add('btn-rendering');
+      });
+      
+      // Tab switching function
+      function switchTab(tabName) {
+        // Hide all tab contents
+        const tabContents = document.querySelectorAll('.tab-content');
+        tabContents.forEach(content => {
+          content.classList.remove('active');
+        });
+        
+        // Remove active class from all tab buttons
+        const tabButtons = document.querySelectorAll('.tab-button');
+        tabButtons.forEach(button => {
+          button.classList.remove('active');
+        });
+        
+        // Show selected tab content
+        const selectedTab = document.getElementById('tab-' + tabName);
+        if (selectedTab) {
+          selectedTab.classList.add('active');
+        }
+        
+        // Add active class to the appropriate button based on tab name
+        const buttons = document.querySelectorAll('.tab-button');
+        buttons.forEach(btn => {
+          if (btn.textContent.includes('Video Production') && tabName === 'video-production') {
+            btn.classList.add('active');
+          } else if (btn.textContent.includes('Titles and PIP') && tabName === 'titles-pip') {
+            btn.classList.add('active');
+          }
+        });
+        
+        // Update timeline when switching to video production tab
+        if (tabName === 'video-production') {
+          setTimeout(updateTimeline, 50);
+        }
+      }
+      
+      // Function to confirm video submission
+      function confirmSubmit(event) {
+        return confirm('Are you sure you want to submit this completed video? This will save it to the database.');
+      }
+      
+      // Function to use pre-production video data
+      function usePreProduction(title, videoUrl, button) {
+        // Update the button state
+        if (button) {
+          button.textContent = '✓ Used';
+          button.style.background = '#6c757d';
+          button.style.color = 'white';
+          button.style.borderColor = '#6c757d';
+          button.style.cursor = 'default';
+          button.disabled = true;
+          button.style.opacity = '0.8';
+        }
+        
+        // Populate the title field
+        const titleInput = document.querySelector('input[name="title"]');
+        if (titleInput) {
+          titleInput.value = title;
+        }
+        
+        // Switch to Video Production tab
+        switchTab('video-production');
+        
+        // Add visual feedback to the title field
+        setTimeout(() => {
+          if (titleInput) {
+            titleInput.style.background = '#d4edda';
+            titleInput.style.borderColor = '#28a745';
+            
+            // Scroll to the title field
+            titleInput.scrollIntoView({ behavior: 'smooth', block: 'center' });
+            
+            // Reset after 2 seconds
+            setTimeout(() => {
+              titleInput.style.background = '';
+              titleInput.style.borderColor = '';
+            }, 2000);
+          }
+        }, 100);
+        
+        // Show success message
+        alert(`Title "${title}" has been populated!\n\nSwitched to Video Production tab. You can now upload your main video and configure the PiP settings.`);
+      }
+    </script>
+  </body>
+</html>
