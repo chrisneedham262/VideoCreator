@@ -1,5 +1,6 @@
 # renderer/views.py
 import uuid
+import os
 from pathlib import Path
 from typing import List
 from django.conf import settings
@@ -21,8 +22,11 @@ from .signals import render_clicked
 # Import PreProduction model
 from preproduction.models import PreProduction
 
-@csrf_exempt
 def index(request):
+    return render(request, "renderer/index.html")
+
+@csrf_exempt
+def explainer_video(request):
     if request.method == "POST":
         # Handle form submission by calling render_video logic
         return render_video(request)
@@ -30,22 +34,67 @@ def index(request):
         # Handle GET request - show the form with preproduction videos
         preproduction_videos = PreProduction.objects.all()  # Already ordered by -created_at
         context = {
-            'preproduction_videos': preproduction_videos
+            'preproduction_videos': preproduction_videos,
+            'active_tab': 'titles-pip'
         }
-        return render(request, "renderer/index.html", context)
+        return render(request, "renderer/explainer_video.html", context)
 
 def process_main_video(request, updir):
     """Handle main video upload and validation"""
-    media = request.FILES.get("media")
-    if not media:
-        raise ValueError("Upload a main video (with audio).")
+    # Check if using pre-production video
+    use_preprod_main = request.POST.get("use_preprod_main")
     
-    base_path = save_uploaded_file(media, updir)
-    video_dur = probe_duration_seconds(base_path)
-    if video_dur <= 0:
-        raise ValueError("Could not detect duration from the uploaded video.")
-    
-    return base_path, video_dur
+    if use_preprod_main:
+        # Using pre-production video - copy to uploads directory
+        from django.conf import settings
+        import os
+        import shutil
+        from pathlib import Path
+        
+        # Convert URL to file path
+        # URL format: /media/preproduction/filename.mp4
+        # File path: MEDIA_ROOT/preproduction/filename.mp4
+        if use_preprod_main.startswith(settings.MEDIA_URL):
+            file_path = use_preprod_main.replace(settings.MEDIA_URL, '')
+            source_path = os.path.join(settings.MEDIA_ROOT, file_path)
+        else:
+            source_path = use_preprod_main
+            
+        # Verify source file exists
+        if not os.path.exists(source_path):
+            raise ValueError(f"Pre-production video file not found: {source_path}")
+        
+        # Generate unique filename for uploads directory
+        filename = os.path.basename(source_path)
+        name, ext = os.path.splitext(filename)
+        unique_filename = f"{name}_preprod_{uuid.uuid4().hex[:8]}{ext}"
+        
+        # Copy file to uploads directory
+        dest_path = os.path.join(updir, unique_filename)
+        shutil.copy2(source_path, dest_path)
+        
+        # Get relative path for database storage
+        relative_path = os.path.relpath(dest_path, settings.MEDIA_ROOT)
+        
+        video_dur = probe_duration_seconds(dest_path)
+        if video_dur <= 0:
+            raise ValueError("Could not detect duration from the pre-production video.")
+            
+        return dest_path, video_dur, relative_path
+    else:
+        # Using uploaded file
+        media = request.FILES.get("media")
+        if not media:
+            raise ValueError("Upload a main video (with audio) or use a pre-production video.")
+        
+        base_path = save_uploaded_file(media, updir)
+        video_dur = probe_duration_seconds(base_path)
+        if video_dur <= 0:
+            raise ValueError("Could not detect duration from the uploaded video.")
+        
+        # Get relative path for database storage
+        relative_path = os.path.relpath(base_path, settings.MEDIA_ROOT)
+        return base_path, video_dur, relative_path
 
 def process_broll_clips(request, base_path, video_dur, updir, outdir):
     """Handle B-roll processing"""
@@ -160,9 +209,70 @@ def apply_single_pip_effect(base_path, pip_data, outdir):
     
     return out_path
 
+def handle_completion_submission(request):
+    """Handle submission of completed video and mark pre-production as completed"""
+    title = request.POST.get("title")
+    video_url = request.POST.get("video_url")
+    
+    # Get preproduction videos for the template
+    preproduction_videos = PreProduction.objects.all()
+    
+    if not title or not video_url:
+        return render(request, "renderer/explainer_video.html", {
+            "error": "Missing title or video URL",
+            "preproduction_videos": preproduction_videos,
+            "active_tab": "titles-pip"
+        })
+    
+    # Extract the file path from the URL
+    # video_url format: /media/outputs/filename.mp4
+    video_path = video_url.replace(settings.MEDIA_URL, '')
+    
+    try:
+        # Find the InputData by title
+        input_data = InputData.objects.filter(title=title).order_by('-created_at').first()
+        
+        if input_data:
+            # Update the completed_video field
+            input_data.completed_video = video_path
+            input_data.save()
+            
+            # Find and mark the matching pre-production video as completed
+            preprod_video = PreProduction.objects.filter(title=title).first()
+            if preprod_video:
+                preprod_video.completed = True
+                preprod_video.save()
+            
+            # Return success with active tab set to titles-pip
+            return render(request, "renderer/explainer_video.html", {
+                "output_url": video_url,
+                "rendered_title": title,
+                "submit_success": True,
+                "broll_hits": f"Completed video saved for: {title}",
+                "preproduction_videos": preproduction_videos,
+                "active_tab": "titles-pip"
+            })
+        else:
+            return render(request, "renderer/explainer_video.html", {
+                "error": f"Could not find InputData with title: {title}",
+                "preproduction_videos": preproduction_videos,
+                "active_tab": "titles-pip"
+            })
+    
+    except Exception as e:
+        return render(request, "renderer/explainer_video.html", {
+            "error": f"Error saving completed video: {str(e)}",
+            "preproduction_videos": preproduction_videos,
+            "active_tab": "titles-pip"
+        })
+
 @csrf_exempt
 def render_video(request):
     ctx = {}
+
+    # Check if this is a completion submission
+    if request.method == "POST" and request.POST.get("submit_completed") == "true":
+        return handle_completion_submission(request)
 
     # tiny helper to append status lines
     def add_status(msg: str):
@@ -175,8 +285,15 @@ def render_video(request):
         outdir.mkdir(parents=True, exist_ok=True)
 
         # 1. Process main video
-        base_path, video_dur = process_main_video(request, updir)
-        # Get the media file for database saving
+        result = process_main_video(request, updir)
+        if len(result) == 3:
+            base_path, video_dur, main_video_path = result
+        else:
+            # Backward compatibility for old return format
+            base_path, video_dur = result
+            main_video_path = os.path.relpath(base_path, settings.MEDIA_ROOT)
+        
+        # Get the media file for database saving (only if not using pre-production)
         media = request.FILES.get("media")
         
         # 2. Process B-roll clips
@@ -219,7 +336,7 @@ def render_video(request):
         title = request.POST.get("title")
         if not title:
             ctx["error"] = "Title is required."
-            return render(request, "renderer/index.html", ctx)
+            return render(request, "renderer/explainer_video.html", ctx)
         
         # Add title to context for submit button
         ctx["rendered_title"] = title
@@ -252,7 +369,12 @@ def render_video(request):
         )
 
         # Save the InputData
-        input_data = InputData.objects.create(title=title, main_video=media)
+        if main_video_path:
+            # Using pre-production video or processed file
+            input_data = InputData.objects.create(title=title, main_video=main_video_path)
+        else:
+            # Using uploaded file
+            input_data = InputData.objects.create(title=title, main_video=media)
 
         # Save PiP clips
         for i in range(pip_rows):
@@ -310,62 +432,14 @@ def render_video(request):
             )
 
         ctx["input_data_id"] = input_data.id
+        ctx["preproduction_videos"] = PreProduction.objects.all()
+        ctx["active_tab"] = "video-production"
 
-        return render(request, "renderer/index.html", ctx)
+        return render(request, "renderer/explainer_video.html", ctx)
 
     except Exception as e:
         ctx["error"] = str(e)
-        return render(request, "renderer/index.html", ctx)
+        ctx["preproduction_videos"] = PreProduction.objects.all()
+        ctx["active_tab"] = "video-production"
+        return render(request, "renderer/explainer_video.html", ctx)
 
-@csrf_exempt
-def submit_completed_video(request):
-    """Handle submission of completed video to InputData"""
-    if request.method == "POST":
-        title = request.POST.get("title")
-        video_url = request.POST.get("video_url")
-        
-        # Get preproduction videos for the template
-        preproduction_videos = PreProduction.objects.all()
-        
-        if not title or not video_url:
-            return render(request, "renderer/index.html", {
-                "error": "Missing title or video URL",
-                "preproduction_videos": preproduction_videos
-            })
-        
-        # Extract the file path from the URL
-        # video_url format: /media/outputs/filename.mp4
-        video_path = video_url.replace(settings.MEDIA_URL, '')
-        
-        try:
-            # Find the InputData by title
-            input_data = InputData.objects.filter(title=title).order_by('-created_at').first()
-            
-            if input_data:
-                # Update the completed_video field
-                input_data.completed_video = video_path
-                input_data.save()
-                
-                # Return success
-                return render(request, "renderer/index.html", {
-                    "output_url": video_url,
-                    "rendered_title": title,
-                    "submit_success": True,
-                    "broll_hits": f"Completed video saved for: {title}",
-                    "preproduction_videos": preproduction_videos
-                })
-            else:
-                return render(request, "renderer/index.html", {
-                    "error": f"Could not find InputData with title: {title}",
-                    "preproduction_videos": preproduction_videos
-                })
-        
-        except Exception as e:
-            return render(request, "renderer/index.html", {
-                "error": f"Error saving completed video: {str(e)}",
-                "preproduction_videos": preproduction_videos
-            })
-    
-    # If not POST, redirect to index
-    from django.shortcuts import redirect
-    return redirect('index')

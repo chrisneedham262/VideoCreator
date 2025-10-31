@@ -8,10 +8,17 @@ class PreProduction(models.Model):
     that will be used in the video production workflow
     """
     title = models.CharField(max_length=255, help_text="Title for the pre-production video")
+    main_video = models.FileField(
+        upload_to='preproduction/', 
+        help_text="Pre-production main video file",
+        blank=True,
+        null=True
+    )
     pip_video = models.FileField(
         upload_to='preproduction/', 
         help_text="Pre-production PiP video file"
     )
+    completed = models.BooleanField(default=False, help_text="Mark as completed")
     created_at = models.DateTimeField(auto_now_add=True, help_text="Date and time when this was created")
     updated_at = models.DateTimeField(auto_now=True, help_text="Last updated")
     
