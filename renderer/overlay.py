@@ -45,8 +45,8 @@ def prepare_overlay_chain(
     dur = t1 - t0
     
     # Base scaling and format conversion - scale up by 40% for zoom effect
-    expanded_w = int(W * 1.4)  # 40% larger width
-    expanded_h = int(H * 1.4)  # 40% larger height
+    expanded_w = int(W * 1.0)  # 40% larger width
+    expanded_h = int(H * 1.0)  # 40% larger height
     
     # CRITICAL: Trim overlay from 0 to duration, reset timestamps, then shift to timeline position
     # This ensures the overlay video plays from its beginning, not from timeline position

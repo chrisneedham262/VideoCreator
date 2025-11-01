@@ -41,15 +41,13 @@ def explainer_video(request):
 
 def process_main_video(request, updir):
     """Handle main video upload and validation"""
+    import shutil
+    
     # Check if using pre-production video
     use_preprod_main = request.POST.get("use_preprod_main")
     
     if use_preprod_main:
         # Using pre-production video - copy to uploads directory
-        from django.conf import settings
-        import os
-        import shutil
-        from pathlib import Path
         
         # Convert URL to file path
         # URL format: /media/preproduction/filename.mp4
