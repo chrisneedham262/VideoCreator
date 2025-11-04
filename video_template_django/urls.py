@@ -24,6 +24,7 @@ urlpatterns = [
     path('', include('renderer.urls')),  # Includes renderer URLs at the root
     path('preproduction/', include('preproduction.urls')),  # Includes preproduction URLs
     path('script/', include('script.urls')),  # Includes script/AI assistant URLs
+    path('description/', include('description.urls')),  # Includes description/AI assistant URLs
 ]
 if settings.DEBUG:
     urlpatterns += static(settings.MEDIA_URL, document_root=settings.MEDIA_ROOT)

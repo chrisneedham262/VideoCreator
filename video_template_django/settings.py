@@ -44,6 +44,7 @@ INSTALLED_APPS = [
     'renderer',
     'preproduction',
     'script.apps.ScriptConfig',
+    'description.apps.DescriptionConfig',
 ]
 
 MIDDLEWARE = [

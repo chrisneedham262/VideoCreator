@@ -1,0 +1,57 @@
+<!DOCTYPE html>
+<html>
+<head>
+    <title>AI Prompts - Description</title>
+    <style>
+        body { font-family: Arial, sans-serif; max-width: 800px; margin: 50px auto; padding: 20px; }
+        .messages { border: 1px solid #ddd; padding: 20px; margin-bottom: 20px; min-height: 300px; max-height: 500px; overflow-y: auto; }
+        .message { margin-bottom: 15px; padding: 10px; border-radius: 5px; }
+        .user { background: #e3f2fd; }
+        .assistant { background: #f1f8e9; }
+        textarea { width: 100%; padding: 10px; margin-bottom: 10px; }
+        button { padding: 10px 20px; background: #007bff; color: white; border: none; cursor: pointer; }
+        button:disabled { background: #ccc; cursor: not-allowed; }
+        .copy-btn { float: right; padding: 5px 10px; font-size: 12px; }
+    </style>
+</head>
+<body>
+    <h1>AI Assistant - Description</h1>
+    
+    {% if messages %}
+        {% for message in messages %}
+            <div style="color: red;">{{ message }}</div>
+        {% endfor %}
+    {% endif %}
+    
+    <div class="messages">
+        {% for msg in conversation_messages %}
+            <div class="message {{ msg.role }}">
+                <strong>{{ msg.role|title }}:</strong>
+                {{ msg.content }}
+                <form method="post" action="{% url 'description:delete_message' msg.id %}" style="display:inline;">
+                    {% csrf_token %}
+                    <button type="submit" class="copy-btn">Delete</button>
+                </form>
+            </div>
+        {% endfor %}
+    </div>
+    
+    <form method="post" id="promptForm">
+        {% csrf_token %}
+        <textarea name="prompt" rows="4" required></textarea>
+        <button type="submit" id="submitBtn">
+            <span id="btnText">Send</span>
+            <span id="btnLoading" style="display:none;">Loading...</span>
+        </button>
+    </form>
+    
+    <script>
+        document.getElementById('promptForm').onsubmit = function() {
+            document.getElementById('btnText').style.display = 'none';
+            document.getElementById('btnLoading').style.display = 'inline';
+            document.getElementById('submitBtn').disabled = true;
+        };
+    </script>
+</body>
+</html>
+
