@@ -43,7 +43,7 @@ def get_llm_response(conversation):
     # Initialize the agent
     agent = DescriptionAgent(
         api_key=api_key,
-        model="gpt-4",
+        model="gpt-4o",
         temperature=0.7,
         max_tokens=1000
     )
