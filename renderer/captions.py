@@ -1,9 +1,9 @@
 # --- captions helpers ---
-import shlex, subprocess, tempfile
+import subprocess, tempfile
 from pathlib import Path
 
 def _run(cmd: str):
-    return subprocess.run(shlex.split(cmd), capture_output=True, text=True, check=True)
+    return subprocess.run(cmd, capture_output=True, text=True, check=True, shell=True)
 
 def transcribe_to_srt(media_path: Path, model_size: str = "base") -> Path:
     """

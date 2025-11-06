@@ -1,5 +1,5 @@
 # renderer/shrink.py
-import shlex, subprocess
+import subprocess
 from math import sqrt
 from pathlib import Path
 from typing import Optional, List
@@ -11,7 +11,7 @@ AUDIO_BR = "192k"
 MARGIN = 24  # pixels from the edges
 
 def _run(cmd: str):
-    return subprocess.run(shlex.split(cmd), capture_output=True, text=True, check=True)
+    return subprocess.run(cmd, capture_output=True, text=True, check=True, shell=True)
 
 def apply_shrink_pip(
     base_path: Path,

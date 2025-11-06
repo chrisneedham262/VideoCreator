@@ -3,7 +3,7 @@ import json, subprocess, shlex, tempfile, os, sys
 
 def run(cmd):
     print("→", cmd)
-    subprocess.check_call(shlex.split(cmd))
+    subprocess.check_call(cmd, shell=True)
 
 def main(template_path, var_mapping):
     with open(template_path) as f:

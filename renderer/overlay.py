@@ -1,5 +1,5 @@
 # renderer/overlay.py
-import shlex, subprocess
+import subprocess
 from dataclasses import dataclass
 from pathlib import Path
 from typing import Optional, List
@@ -13,7 +13,7 @@ DEFAULT_FADE_OUT = 0.25  # fade duration in seconds
 
 
 def _run(cmd: str):
-    return subprocess.run(shlex.split(cmd), capture_output=True, text=True, check=True)
+    return subprocess.run(cmd, capture_output=True, text=True, check=True, shell=True)
 
 def prepare_overlay_chain(
     input_idx: int,

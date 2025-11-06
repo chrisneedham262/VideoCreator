@@ -1,5 +1,5 @@
 # renderer/broll.py
-import shlex, subprocess, uuid
+import subprocess, uuid
 from dataclasses import dataclass
 from pathlib import Path
 from typing import List, Dict, Tuple, Iterable
@@ -13,12 +13,12 @@ DEFAULT_FADE_OUT = 0.25
 
 # ---------- low-level utils ----------
 def run(cmd: str):
-    return subprocess.run(shlex.split(cmd), capture_output=True, text=True, check=True)
+    return subprocess.run(cmd, capture_output=True, text=True, check=True, shell=True)
 
 def probe_duration_seconds(path: Path) -> float:
     """Return media duration in seconds (0 on failure)."""
     cmd = f'ffprobe -v error -show_entries format=duration -of default=nw=1:nk=1 "{path}"'
-    res = subprocess.run(shlex.split(cmd), capture_output=True, text=True, check=True)
+    res = subprocess.run(cmd, capture_output=True, text=True, check=True, shell=True)
     try:
         return max(0.0, float(res.stdout.strip()))
     except Exception:
